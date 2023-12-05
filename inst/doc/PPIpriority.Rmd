@@ -1,0 +1,214 @@
+---
+title: "PPIpriority"
+author:
+- name: Daniele Pittari
+  affiliation: Polytechnic University of Milan, University of Milan
+  email: danielepittari@gmail.com
+package: PPIpriority
+output:
+  BiocStyle::pdf_document
+
+vignette: |
+  %\VignetteIndexEntry{PPIpriority}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    comment = "#>"
+)
+```
+```{r style, echo = FALSE, results = 'asis'} 
+library(BiocStyle)
+```
+```{r knitr, echo = FALSE} 
+library(knitr)
+```
+
+# Introduction
+
+In the last twenty years, the technological advancement of high throughput 
+approaches has revolutionized the field of bio medical research. With the 
+greater availability of complex data information, the development of tools 
+able to model data and extrapolate information has become of great interest.
+
+In this context, graph modelling and network analysis have become popular 
+approaches for modelling molecular interactions. Gene co-expression networks
+and protein-protein interaction (PPI) networks represent valuable models for 
+performing target prioritization of genes/proteins of interest.
+
+In this package, we present a tool which utilizes the STRINGdb PPI 
+data sets and allows for target prioritization based on a random walk in the 
+PPI from genes of interest (seeds), known for being associated with the 
+phenotype/biological process of interest (seeds). 
+
+
+# Methods
+
+Methodological studies benchmarking the performance of different strategies
+for disease gene prioritization in PPI networks have demonstrated that 
+approaches utilizing random walking with restart showed good performance in 
+the different conditions tested (Köhler et al. 2008). 
+
+Our tool allows to conveniently combine the retrieval of PPI data from the 
+STRINGdb (via the homonym package) and conveniently perfom target 
+prioritization using a random walking (RW) with restart from the RANKS package.
+
+The output of our package consists of a data.frame containing a ranking of 
+the genes based on the RW.
+
+
+# Workflow
+The workflow of PPIpriority is a two-step process
+
+1. Retrieve the PPI network of interest from the STRINGdb database, utilizing
+   the function "build_ppi_network" and creating a "PPIpriority_obj" which
+   will store your network as well as the STRINGdb object. This allows the user
+   to continue data analysis on the downloaded PPI via the STRINGdb package.
+   
+2. Perform target prioritization on the network stored in the PPIpriority_obj
+   via using the function "prioritize_targets" with at least gene as seed
+   for the random walk.
+    
+
+
+# Showcase
+
+### Prioritizing putative targets for a protein of interest: the case of ERp44
+
+The first example shows a case of target prioritization on a human PPI.
+
+Given our protein of interest ERp44, we want to prioritize putative functional
+targets based on PPI. 
+
+ERP44 is a protein chaperone that cycles from the Endoplasmic
+Reticulum (ER) to the cis-Golgi and vice-versa. The role of this protein is to 
+selectively retrieve to the ER those proteins that have erroneously left the 
+it through vesicle transport. Among the ERP44 binding partners we have 
+ER-localized enzymes (e.g. PRDX4, ERAP) or subunits of oligomeric protein 
+complexes (e.g. IgMs).
+
+
+First step: we retrieve the version "11.5" of the STRINGdb PPI for the human 
+species (9606) and set a threshold of interaction confidence of 600.
+
+To do this, simply use "build_ppi_network" with 
+appropriate inputs for STRINGdb:
+
+```{r Retrieve PPI network}
+library(PPIpriority)
+#Set  extended timeout, not necessary while using the package
+options(timeout=700)
+
+network_ppi_obj<- build_ppi_network(version ="11.5", species = 9606,
+score_threshold=700, input_directory=getwd())
+```
+Now we run target prioritization: to do this, use "prioritize_targets" on your
+PPIpriority object. The function will require one or more seed genes that will
+be used to initialize the random walk. In our case, ERp44 will be our seed. 
+In addition, if you want to analyze a list of candidate genes to prioritize, 
+you can insert them as "candidates". The function will pre-filter
+the results just based on the genes of interests.
+
+In this scenario, since we are interested in all of the possible results, we 
+will not provide candidate genes among "prioritize_targets" inputs. We are 
+just passing the HUGO gene name of ERP44, which is ERP44 indeed.
+
+
+```{r Run prioritization}
+output_df<-prioritize_targets(network_ppi_obj, seeds = "ERP44")
+
+head(output_df,15) # show the df
+```
+
+
+ERO1L/ERO1LB, PRDX4, SUMF1, ERAP1 are among the top candidates.
+All these proteins have been experimentally demonstrated to physically interact 
+with ERp44 (Anelli et al. 2002, Fraldi et al. 2008, Hisatsune et al. 2015, 
+Yang et al. 2016). 
+
+As for what concerns the output data.frame: the tool returns the preferred id 
+for your input genes according to STRINGdb. 
+
+
+In these examples we are using HUGO symbols as inputs for seeds (or 
+candidates, if any). We suggest to use recommended gene symbol formats.
+You can also utilize other formats (e.g. NCBI Entrez Gene), PPIpriority will
+convert them into STRINGdb IDs. To achieve better conversion of genes into 
+STRINGdb IDs, the mapping step is performed by calling the map method 
+of STRINGdb. Check the STRINGdb package for more information.
+
+### Performing the same analysis NCBI Entrez Gene for ERP44 
+```{r Run prioritization with ENTREZ gene id}
+output_df_erp44_entrez<-prioritize_targets(network_ppi_obj, seeds = "23071")
+
+# is the output equal to out previous dataset obtained with HUGO symbols?
+all.equal(output_df_erp44_entrez,output_df)
+```
+
+### Prioritizing a list of multiple candidates, given multiple known genes: the case of the functional partners ERp44, LMAN1 and MCFD2
+This case concerns the prioritization of candidate targets given multiple 
+seeds.
+
+In plasma cells, ERP44, LMAN1 and MCFD2 have been proposed to create 
+functional structures in the ER that may facilitate the assembly of complex 
+oligomeric proteins. 
+
+Given that we know that coagulation factor V (F5) is a binder of this complex,
+we run the analysis with other secreted proteins to prioritize to evalutate if
+the algorithm scores F5 among the top ranked gene.
+
+
+```{r Run prioritization, multiple seeds and candidates}
+seeds_genes<-c("ERP44","LMAN1", "MCFD2")
+candidate_genes<-c("AREG", "IL1A", "IL1B", "MMP3", "PRL", "F5")
+
+output_df_msmc<-prioritize_targets(network_ppi_obj, 
+                              seeds = seeds_genes,
+                              candidates=candidate_genes)
+
+# show the df
+output_df_msmc
+```
+
+The analysis correctly ranks coagulation factor V (F5) at the top in the
+ranks. 
+
+
+
+# Beyond PPIpriority: continuing your analysis with STRINGdb or other tools for network analysis
+The PPIpriority package allows for extrapolating the network modeled during the
+"build_ppi_network" step as well as the STRINGdb object. This can be performed 
+by using the methods "get_network" and "get_STRINGdb_connection" methods 
+respectively. These methods are accessors to the PPIpriority obj S4 
+class slots "graph" and "STRINGdb_connection".
+
+### Retrieve the network from PPIpriority obj:
+
+```{r Access netowrk information}
+get_network(network_ppi_obj)
+```
+### Retrieve the STRINGdb obj from PPIpriority obj:
+```{r Access STRINGdb obj}
+get_STRINGdb_connection(network_ppi_obj)
+```
+
+
+# References
+> Köhler S, Bauer S, Horn D, Robinson PN. Walking the interactome for prioritization of candidate disease genes. Am J Hum Genet. 2008 Apr;82(4):949-58. doi: 10.1016/j.ajhg.2008.02.013. Epub 2008 Mar 27. PMID: 18371930; PMCID: PMC2427257.
+
+>Anelli T, Alessio M, Mezghrani A, Simmen T, Talamo F, Bachi A, Sitia R. ERp44, a novel endoplasmic reticulum folding assistant of the thioredoxin family. EMBO J. 2002 Feb 15;21(4):835-44. doi: 10.1093/emboj/21.4.835. PMID: 11847130; PMCID: PMC125352.
+
+>Fraldi A, Zito E, Annunziata F, Lombardi A, Cozzolino M, Monti M, Spampanato C, Ballabio A, Pucci P, Sitia R, Cosma MP. Multistep, sequential control of the trafficking and function of the multiple sulfatase deficiency gene product, SUMF1 by PDI, ERGIC-53 and ERp44. Hum Mol Genet. 2008 Sep 1;17(17):2610-21. doi: 10.1093/hmg/ddn161. Epub 2008 May 28. PMID: 18508857.
+
+>Hisatsune C, Ebisui E, Usui M, Ogawa N, Suzuki A, Mataga N, Takahashi-Iwanaga H, Mikoshiba K. ERp44 Exerts Redox-Dependent Control of Blood Pressure at the ER. Mol Cell. 2015 Jun 18;58(6):1015-27. doi: 10.1016/j.molcel.2015.04.008. Epub 2015 May 7. PMID: 25959394.
+
+>Yang K, Li DF, Wang X, Liang J, Sitia R, Wang CC, Wang X. Crystal Structure of the ERp44-Peroxiredoxin 4 Complex Reveals the Molecular Mechanisms of Thiol-Mediated Protein Retention. Structure. 2016 Oct 4;24(10):1755-1765. doi: 10.1016/j.str.2016.08.002. Epub 2016 Sep 15. PMID: 27642162.
+  
+# Session information
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```

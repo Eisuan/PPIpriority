@@ -1,0 +1,26 @@
+Package: PPIpriority
+Type: Package
+Title: PPI network building and target prioritization via random walk
+Version: 0.1.0
+Authors@R: person(given = "Daniele",
+           family = "Pittari",
+           role = c("aut", "cre"),
+           email = "danielepittari@gmail.com")
+Description: PPIpriority allows to perform target prioritization based on 
+    random walk with restart on PPI networks. This package is based on the
+    STRINGdb for retrieving PPI network information. The propritization is done
+    in a convenient two-step process, that is perfomed based on a list of genes
+    known to be involved in the phenotype/biological process of interest.
+License: GPL-3
+Encoding: UTF-8
+Imports: dplyr, igraph, plyr, RANKS, STRINGdb, methods
+Suggests: knitr, rmarkdown, BiocStyle, testthat (>= 3.0.0)
+RoxygenNote: 7.2.3
+VignetteBuilder: knitr
+biocViews: FunctionalPrediction, Network, WorkflowStep,
+        GraphAndNetwork, Software
+Config/testthat/edition: 3
+NeedsCompilation: no
+Packaged: 2023-01-11 22:31:21 UTC; eisuan
+Author: Daniele Pittari [aut, cre]
+Maintainer: Daniele Pittari <danielepittari@gmail.com>
